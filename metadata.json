@@ -1,0 +1,6 @@
+{
+  "name": "MemeMic",
+  "description": "Gaming meme soundboard and live voice prank utility with floating overlay and audio routing for multiplayer games",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
