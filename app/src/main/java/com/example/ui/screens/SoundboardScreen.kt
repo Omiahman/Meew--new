@@ -79,6 +79,17 @@ fun SoundboardScreen(
     val selectedCategory = viewModel.selectedCategory.value
     val searchQuery = viewModel.searchQuery.value
     val userSettings = viewModel.userSettings.value
+    val dynamicCategories = viewModel.soundCategories.value
+    val displayCategories = remember(dynamicCategories) {
+        val list = mutableListOf("All")
+        for (cat in DefaultSoundsData.CATEGORIES) {
+            if (cat != "All" && !list.contains(cat)) list.add(cat)
+        }
+        for (cat in dynamicCategories) {
+            if (cat.isNotBlank() && !list.contains(cat)) list.add(cat)
+        }
+        list
+    }
 
     var showCustomSoundDialog by remember { mutableStateOf(false) }
     var showVolumeSlider by remember { mutableStateOf(false) }
@@ -252,7 +263,7 @@ fun SoundboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 4.dp)
             ) {
-                items(DefaultSoundsData.CATEGORIES) { category ->
+                items(displayCategories) { category ->
                     val isSelected = selectedCategory == category
                     Box(
                         modifier = Modifier

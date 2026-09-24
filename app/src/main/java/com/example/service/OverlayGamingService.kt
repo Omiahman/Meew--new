@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -26,6 +27,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.MemeMicApp
 import com.example.data.MemeSoundEntity
@@ -59,6 +61,7 @@ class OverlayGamingService : Service() {
         const val ACTION_START = "com.example.mememic.ACTION_START"
         const val ACTION_STOP = "com.example.mememic.ACTION_STOP"
         const val ACTION_TOGGLE_MUTE = "com.example.mememic.ACTION_TOGGLE_MUTE"
+        const val ACTION_RELOAD_OVERLAY = "com.example.mememic.ACTION_RELOAD_OVERLAY"
 
         var isServiceRunning = false
             private set
@@ -93,6 +96,14 @@ class OverlayGamingService : Service() {
                 updateOverlayViewContent()
                 return START_STICKY
             }
+            ACTION_RELOAD_OVERLAY -> {
+                if (overlayView == null && (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this))) {
+                    setupOverlay()
+                } else if (overlayView != null) {
+                    updateOverlayViewContent()
+                }
+                return START_STICKY
+            }
             else -> {
                 startAsForeground()
                 setupOverlay()
@@ -120,11 +131,26 @@ class OverlayGamingService : Service() {
     private fun startAsForeground() {
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
+            val hasMicPermission = ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+
+            var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && hasMicPermission) {
+                type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            }
+
+            try {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    type
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed startForeground with type $type, falling back to default", e)
+                startForeground(NOTIFICATION_ID, notification)
+            }
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -381,6 +407,18 @@ class OverlayGamingService : Service() {
                 }
             }
             header.addView(collapseBtn, LinearLayout.LayoutParams((32 * scale).toInt(), (32 * scale).toInt()))
+
+            // Close / Stop Service Button
+            val closeBtn = ImageView(this).apply {
+                setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                setColorFilter(Color.parseColor("#EF4444"))
+                val p = (6 * scale).toInt()
+                setPadding(p, p, p, p)
+                setOnClickListener {
+                    stopSelf()
+                }
+            }
+            header.addView(closeBtn, LinearLayout.LayoutParams((32 * scale).toInt(), (32 * scale).toInt()))
 
             container.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 

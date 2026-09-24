@@ -7,6 +7,7 @@ import com.example.audio.LiveAudioMixer
 import com.example.audio.LowLatencySoundPlayer
 import com.example.data.MemeMicDatabase
 import com.example.data.MemeSoundRepository
+import com.example.data.LocalMemeAudioRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +21,12 @@ class MemeMicApp : Application() {
         MemeSoundRepository(
             database.memeSoundDao(),
             database.userSettingsDao()
+        )
+    }
+    val localMemeAudioRepository by lazy {
+        LocalMemeAudioRepository(
+            database.localMemeAudioDao(),
+            database.soundCategoryDao()
         )
     }
 

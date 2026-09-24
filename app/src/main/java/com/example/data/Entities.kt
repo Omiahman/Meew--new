@@ -40,3 +40,41 @@ data class UserSettingsEntity(
     val gamingModeActive: Boolean = false,
     val selectedGamingApps: String = "com.dts.freefireth,com.dts.freefiremax,com.pubg.imobile,com.tencent.ig"
 )
+
+@Entity(tableName = "local_meme_audio")
+data class LocalMemeAudioEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val title: String,
+    val filePath: String,
+    val fileUri: String? = null,
+    val category: String = "Custom", // "Funny", "Troll", "Reaction", "Laugh", "Surprise", "Gaming", "Voice", "Effects", "Custom"
+    val durationMs: Long = 0L,
+    val fileSizeBytes: Long = 0L,
+    val mimeType: String = "audio/wav",
+    val iconName: String = "mic",
+    val isFavorite: Boolean = false,
+    val isQuickAccess: Boolean = false,
+    val quickAccessOrder: Int = 0,
+    val playCount: Int = 0,
+    val lastPlayedTimestamp: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis(),
+    val tags: String = ""
+)
+
+@Entity(tableName = "sound_categories")
+data class SoundCategoryEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val name: String,
+    val iconName: String = "category",
+    val colorHex: String = "#00F0FF",
+    val displayOrder: Int = 0,
+    val isDefault: Boolean = false
+)
+
+data class CategoryWithCount(
+    val category: String,
+    val count: Int
+)
+

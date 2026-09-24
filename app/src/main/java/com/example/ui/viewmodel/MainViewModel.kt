@@ -16,9 +16,12 @@ import com.example.audio.AudioRoutingStatus
 import com.example.audio.AudioSynthesisEngine
 import com.example.audio.LiveAudioMixer
 import com.example.audio.LowLatencySoundPlayer
+import com.example.data.LocalMemeAudioEntity
+import com.example.data.LocalMemeAudioRepository
 import com.example.data.MemeSoundEntity
 import com.example.data.MemeSoundRepository
 import com.example.data.UserSettingsEntity
+import com.example.data.toLocalMemeAudioEntity
 import com.example.service.OverlayGamingService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,7 +49,12 @@ class MainViewModel(
     private val soundPlayer: LowLatencySoundPlayer,
     private val audioHardwareManager: AudioHardwareManager,
     private val liveAudioMixer: LiveAudioMixer,
-    private val appContext: Context
+    private val appContext: Context,
+    val localAudioRepository: LocalMemeAudioRepository = (appContext.applicationContext as? MemeMicApp)?.localMemeAudioRepository
+        ?: LocalMemeAudioRepository(
+            (appContext.applicationContext as MemeMicApp).database.localMemeAudioDao(),
+            (appContext.applicationContext as MemeMicApp).database.soundCategoryDao()
+        )
 ) : ViewModel() {
 
     val allSounds: StateFlow<List<MemeSoundEntity>> = repository.allSounds
@@ -62,6 +70,12 @@ class MainViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val customSounds: StateFlow<List<MemeSoundEntity>> = repository.customSounds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val localAudioFiles: StateFlow<List<LocalMemeAudioEntity>> = localAudioRepository.allAudioFiles
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val soundCategories: StateFlow<List<String>> = repository.allCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val userSettings: StateFlow<UserSettingsEntity> = repository.userSettings
@@ -83,6 +97,9 @@ class MainViewModel(
 
     private val _isGamingModeActive = MutableStateFlow(OverlayGamingService.isServiceRunning)
     val isGamingModeActive: StateFlow<Boolean> = _isGamingModeActive.asStateFlow()
+
+    private val _hasOverlayPermission = MutableStateFlow(false)
+    val hasOverlayPermission: StateFlow<Boolean> = _hasOverlayPermission.asStateFlow()
 
     private val _installedGames = MutableStateFlow<List<InstalledGameInfo>>(emptyList())
     val installedGames: StateFlow<List<InstalledGameInfo>> = _installedGames.asStateFlow()
@@ -187,6 +204,22 @@ class MainViewModel(
         }
     }
 
+    fun updateOverlayPermissionStatus(context: Context) {
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(context)
+        } else {
+            true
+        }
+        _hasOverlayPermission.value = granted
+        _isGamingModeActive.value = OverlayGamingService.isServiceRunning
+        if (granted && OverlayGamingService.isServiceRunning) {
+            val reloadIntent = Intent(context, OverlayGamingService::class.java).apply {
+                action = OverlayGamingService.ACTION_RELOAD_OVERLAY
+            }
+            context.startService(reloadIntent)
+        }
+    }
+
     fun toggleMicMute() {
         val newMute = liveAudioMixer.toggleMicMute()
         viewModelScope.launch(Dispatchers.IO) {
@@ -241,6 +274,7 @@ class MainViewModel(
                 filePath = file.absolutePath
             )
             repository.saveCustomSound(entity)
+            localAudioRepository.insertAudioFile(entity.toLocalMemeAudioEntity())
         }
     }
 
@@ -267,9 +301,29 @@ class MainViewModel(
                     filePath = targetFile.absolutePath
                 )
                 repository.saveCustomSound(entity)
+                localAudioRepository.insertAudioFile(entity.toLocalMemeAudioEntity())
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    fun updateSoundCategory(sound: MemeSoundEntity, newCategory: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateSoundCategory(sound.id, newCategory)
+            localAudioRepository.updateCategory(sound.id, newCategory)
+        }
+    }
+
+    fun updateLocalAudioCategory(audioId: Long, newCategory: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            localAudioRepository.updateCategory(audioId, newCategory)
+        }
+    }
+
+    fun deleteLocalAudio(audio: LocalMemeAudioEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            localAudioRepository.deleteAudioFile(audio, deletePhysicalFile = true)
         }
     }
 
@@ -390,7 +444,8 @@ class MainViewModel(
                 app.soundPlayer,
                 app.audioHardwareManager,
                 app.liveAudioMixer,
-                app.applicationContext
+                app.applicationContext,
+                app.localMemeAudioRepository
             ) as T
         }
     }

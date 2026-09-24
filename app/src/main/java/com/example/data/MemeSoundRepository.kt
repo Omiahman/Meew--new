@@ -14,6 +14,8 @@ class MemeSoundRepository(
     val customSounds: Flow<List<MemeSoundEntity>> = memeSoundDao.getCustomSounds()
     val userSettings: Flow<UserSettingsEntity> = userSettingsDao.getSettingsFlow()
         .map { it ?: UserSettingsEntity() }
+    val allCategories: Flow<List<String>> = memeSoundDao.getAllSoundCategories()
+    val categoriesWithCount: Flow<List<CategoryWithCount>> = memeSoundDao.getCategoriesWithCount()
 
     fun getSoundsByCategory(category: String): Flow<List<MemeSoundEntity>> {
         return if (category == "All") {
@@ -21,6 +23,10 @@ class MemeSoundRepository(
         } else {
             memeSoundDao.getSoundsByCategory(category)
         }
+    }
+
+    suspend fun updateSoundCategory(soundId: Long, category: String) {
+        memeSoundDao.updateSoundCategory(soundId, category)
     }
 
     fun searchSounds(query: String): Flow<List<MemeSoundEntity>> =
